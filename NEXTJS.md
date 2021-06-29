@@ -217,3 +217,19 @@ const NotFoundPage = () => {
 
 export default NotFoundPage;
 ```
+
+## Styling with Modules
+
+-   Next and react have a native styling method for css
+    -   convention is to name the file ComponentName.module.css
+        _EventItem.module.css_
+-   Importing it as class or style in your component gives it component specific class names to style those components
+-   Same class names in files will not have any effect on other components with the same class name
+-   Styling links, you need to add a anchor tag inside the link tag to add a style to it
+    _Note: Link tags inheritly add an anchor tag behind the scenes and controls how they work, do not add a href to the anchor tag_
+
+## Icons
+
+-   create an icons folder in components directory
+-   import the icon like normal
+-   styles can be applied to icons through div/span/etc... tags like normal
