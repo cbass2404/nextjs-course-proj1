@@ -398,4 +398,10 @@ const AllEventsPage = () => {
 export default AllEventsPage;
 ```
 
--
+_the above example is using a programatic routing method to navigate to the parameters passed_
+
+-   use the useRouter hook from next/router to get the parameters searched for in the slug component
+    -   specifically use the query path to get the array of slug parameters
+-   make sure your data types are right
+-   pass in error checking functionality
+-   query for the parameters
