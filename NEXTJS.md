@@ -233,3 +233,70 @@ export default NotFoundPage;
 -   create an icons folder in components directory
 -   import the icon like normal
 -   styles can be applied to icons through div/span/etc... tags like normal
+
+## Navigation Bar / \_app.js
+
+-   in components directory create a layout folder
+-   create a Layout.js file and MainHeader.js file
+
+-   the Layout component will work as a HOC to pass the Navigation bar to each child component of that file
+
+```javascript
+import { Fragment } from 'react';
+import MainHeader from './MainHeader';
+
+const Layout = (props) => {
+    return (
+        <Fragment>
+            <MainHeader />
+            <main>{props.children}</main>
+        </Fragment>
+    );
+};
+
+export default Layout;
+```
+
+-   next create your navbar in your MainHeader.js file as below, customizing for how you need it
+
+```javascript
+import Link from 'next/Link';
+
+import classes from './MainHeader.module.css';
+
+const MainHeader = () => {
+    return (
+        <header className={classes.header}>
+            <div className={classes.logo}>
+                <Link href="/">NextEvents</Link>
+            </div>
+            <nav className={classes.navigation}>
+                <ul>
+                    <li>
+                        <Link href="/events">Browse All Events</Link>
+                    </li>
+                </ul>
+            </nav>
+        </header>
+    );
+};
+
+export default MainHeader;
+```
+
+-   finally, in your \_app.js file in the main pages directory, import your Layout.js and wrap your component with it, passing the navigation tool to each child component inside it
+
+```javascript
+import Layout from '../components/layout/layout';
+import '../styles/globals.css';
+
+function MyApp({ Component, pageProps }) {
+    return (
+        <Layout>
+            <Component {...pageProps} />;
+        </Layout>
+    );
+}
+
+export default MyApp;
+```
