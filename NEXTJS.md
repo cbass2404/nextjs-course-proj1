@@ -796,3 +796,108 @@ export const getStaticProps = async () => {
         });
 };
 ```
+
+## Optimizing NextJS
+
+-   Adding Meta and <head> tag data
+-   re-using components, logic and configurations
+-   optimizing images
+
+### Configuring the head content
+
+-   NextJS has a special Head tag used to create a head component for SEO
+
+```javascript
+import Head from 'next/head';
+
+import EventList from '../components/events/EventList';
+import { getFeaturedEvents } from '../helpers/api-util';
+
+const HomePage = ({ featuredEvents }) => {
+    return (
+        <div>
+            <Head>
+                <title>NextJS Events</title>
+                <meta
+                    name="description"
+                    content="Find a lot of great events to help you progress as a developer"
+                />
+            </Head>
+            <EventList events={featuredEvents} />
+        </div>
+    );
+};
+
+export const getStaticProps = async () => {
+    const featuredEvents = await getFeaturedEvents();
+
+    return { props: { featuredEvents }, revalidate: 60 * 30 };
+};
+
+export default HomePage;
+```
+
+-   you can also inject content dynamically in the head tag from nextjs
+
+```javascript
+import { Fragment } from 'react';
+import Head from 'next/head';
+import { getEventById, getFeaturedEvents } from '../../helpers/api-util';
+import EventSummary from '../../components/event-detail/event-summary';
+import EventLogistics from '../../components/event-detail/event-logistics';
+import EventContent from '../../components/event-detail/event-content';
+
+const EventDetailPage = ({ event }) => {
+    if (!event) {
+        return (
+            <div className="center">
+                <p>Loading...</p>
+            </div>
+        );
+    }
+
+    return (
+        <Fragment>
+            <Head>
+                <title>{event.title}</title>
+                <meta name="description" content={event.description} />
+            </Head>
+            <EventSummary title={event.title} />
+            <EventLogistics
+                date={event.date}
+                address={event.location}
+                image={event.image}
+                imageAlt={event.title}
+            />
+            <EventContent>
+                <p>{event.description}</p>
+            </EventContent>
+        </Fragment>
+    );
+};
+
+export default EventDetailPage;
+
+export const getStaticProps = async (context) => {
+    const eventId = context.params.eventId;
+
+    const event = await getEventById(eventId);
+
+    return {
+        props: {
+            event,
+        },
+        revalidate: 30,
+    };
+};
+
+export const getStaticPaths = async () => {
+    const events = await getFeaturedEvents();
+    const paths = events.map((event) => ({ params: { eventId: event.id } }));
+
+    return {
+        paths,
+        fallback: 'blocking',
+    };
+};
+```
