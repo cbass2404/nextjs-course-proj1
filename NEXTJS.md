@@ -901,3 +901,122 @@ export const getStaticPaths = async () => {
     };
 };
 ```
+
+-   Setting up reusable head content to avoid copy and pasting
+
+```javascript
+const pageHeadData = (
+    <Head>
+        <title>Filtered Events</title>
+        <meta
+            name="description"
+            content={`All events for ${numMonth}/${numYear}`}
+        />
+    </Head>
+);
+
+if (!loadedEvents) {
+    return (
+        <Fragment>
+            {pageHeadData}
+            <p className="center">Loading...</p>;
+        </Fragment>
+    );
+}
+```
+
+### working with the \_app.js file and why
+
+-   it is rendered by every page
+-   applies dynamically to every child component
+-   nextjs automatically merges multiple head contents
+-   always applies the merged content furthest down the chain
+-   allows for a default head in case you forget to add a custom to the component
+
+```javascript
+import Head from 'next/head';
+import Layout from '../components/layout/layout';
+import '../styles/globals.css';
+
+function MyApp({ Component, pageProps }) {
+    return (
+        <Layout>
+            <Head>
+                <title>Next Events</title>
+                <meta name="description" content="NextJS Events" />
+                <meta
+                    name="viewport"
+                    content="initial-scale=1.0, width=device-width"
+                />
+            </Head>
+            <Component {...pageProps} />
+        </Layout>
+    );
+}
+
+export default MyApp;
+```
+
+### Working with the \_document.js and why
+
+-   allows you to customize ALL elements that make up a HTML document
+-   it must extend something
+-   the following code is the default structure of NextJS document, if you decide to overwrite something to be custom you must recreate the following pattern
+
+```javascript
+import Document, { Html, Head, Main, NextScript } from 'next/document';
+
+class MyDocument extends Document {
+    render() {
+        return (
+            <Html>
+                <Head />
+                <body>
+                    <Main />
+                    <NextScript />
+                </body>
+            </Html>
+        );
+    }
+}
+
+export default MyDocument;
+```
+
+-   reasons to customize the document:
+    -   apply a default lang property
+    -   add an extra html element for porting modals or other things outside of the application
+
+```javascript
+import Document, { Html, Head, Main, NextScript } from 'next/document';
+
+class MyDocument extends Document {
+    render() {
+        return (
+            <Html lang="en">
+                <Head />
+                <body>
+                    <div id="overlays" />
+                    <Main />
+                    <NextScript />
+                </body>
+            </Html>
+        );
+    }
+}
+
+export default MyDocument;
+```
+
+### Optimizing images for production
+
+[documentation](https://nextjs.org/docs/api-reference/next/image)
+
+-   NextJS uses a Image from 'next/image' component to create multiple versions of an image on the fly
+-   then checks the browser and sends the most optimized version of the image that the browser supports
+-   images are lazy loaded by default (if image is not seen yet it does not load until it is needed)
+-   image tag size only effects the max size of the image being loaded, css files still control the images styling
+
+```javascript
+<Image src={`/${image}`} alt={title} width={250} height={160} />
+```
