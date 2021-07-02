@@ -218,7 +218,7 @@ const NotFoundPage = () => {
 export default NotFoundPage;
 ```
 
-## Styling with Modules
+### Styling with Modules
 
 -   Next and react have a native styling method for css
     -   convention is to name the file ComponentName.module.css
@@ -228,13 +228,13 @@ export default NotFoundPage;
 -   Styling links, you need to add a anchor tag inside the link tag to add a style to it
     _Note: Link tags inheritly add an anchor tag behind the scenes and controls how they work, do not add a href to the anchor tag_
 
-## Icons
+### Icons
 
 -   create an icons folder in components directory
 -   import the icon like normal
 -   styles can be applied to icons through div/span/etc... tags like normal
 
-## Navigation Bar / \_app.js
+### Navigation Bar / \_app.js
 
 -   in components directory create a layout folder
 -   create a Layout.js file and MainHeader.js file
@@ -301,7 +301,7 @@ function MyApp({ Component, pageProps }) {
 export default MyApp;
 ```
 
-## Filtering in NextJS using a [...slug].js component
+### Filtering in NextJS using a [...slug].js component
 
 -   create your search parameter component
 
@@ -405,3 +405,394 @@ _the above example is using a programatic routing method to navigate to the para
 -   make sure your data types are right
 -   pass in error checking functionality
 -   query for the parameters
+
+## Data Fetching
+
+-   The problem with traditional react apps and data fetching
+
+    -   There is no data pre-rendered in the application
+    -   There are a few disadvantages:
+        -   user has to wait for data to load
+        -   there is no data for search engines to look through
+        -   if you want search engines to show you in search responses there is nothing to show users in search results
+
+-   How NextJS solves these problems
+
+    -   when a request is made, NextJS sends back a pre-rendered page in html
+    -   sends fully rendered and fully populated html documents
+    -   can still be interactive by 'hydrating' the page with the necessary javascript once loaded preserving Reacts interactive nature
+    -   only affects the initial load of the page then becomes a standard react app again
+
+### Two forms of rendering data
+
+```javascript
+import path from 'path';
+import fs from 'fs/promises';
+
+const HomePage = ({ products }) => {
+    return (
+        <ul>
+            {products.map(({ id, title }) => (
+                <li key={id}>{title}</li>
+            ))}
+        </ul>
+    );
+};
+
+export const getStaticProps = async () => {
+    // export async function getStaticProps() {
+    // cwd === current working directory
+    const filePath = path.join(process.cwd(), 'data', 'dummy-backend.json');
+    // fs === filesystem
+    const jsonData = await fs.readFile(filePath);
+    // JSON.parse === turning json data into javascript data
+    const data = JSON.parse(jsonData);
+
+    return {
+        props: {
+            products: data.products,
+        },
+    };
+};
+
+export default HomePage;
+```
+
+-   Static Generation
+
+    -   recommended approach
+    -   all pages are generated in advance at build time
+    -   pre-generate page with data prepared on the server-side during build time
+    -   pages are prepared ahead of time and can be cached by the server/cdn serving the app
+    -   can only be used with files inside the pages folder
+    -   it is async so returns a promise
+    -   can run code that is server side or client side
+    -   code inside the getStaticProps function will not be exposed on the client side
+    -   only runs the static prop if it exists in that file
+    -   getStaticProps must return a props object
+    -   gives access to the filesystem library in the client component
+    -   incremental static generation lets your static pre-generated page be updated every x seconds
+    -   if request is made it generates the last existing page
+        -   add the revalidate key with second value in seconds to enable incremental static generation
+            _on development server it has no effect_
+
+```javascript
+export const getStaticProps = async () => {
+    // export async function getStaticProps() {
+    // cwd === current working directory
+    const filePath = path.join(process.cwd(), 'data', 'dummy-backend.json');
+    // fs === filesystem
+    const jsonData = await fs.readFile(filePath);
+    // JSON.parse === turning json data into javascript data
+    const data = JSON.parse(jsonData);
+
+    // can return a redirect object to another page if nothing is found
+    if (!data) {
+        return {
+            redirect: {
+                destination: '/no-data',
+            },
+        };
+    }
+
+    // can set page to show a 404 not found error page if notFound is true
+    if (data.products.length === 0) {
+        return { notFound: true };
+    }
+
+    return {
+        props: {
+            products: data.products,
+        },
+        // incremental static generation with seconds as value
+        revalidate: 10,
+    };
+};
+```
+
+-   getStaticProps does get a prop called context
+-   it can be used to get hold of the complete parent values
+-   pre-rendering a page requires the use of context to get values, other methods will happen in the browser and not be pre-rendered
+
+### getStaticPaths
+
+-   pre-rendering dynamic pages will not work statically by default
+-   dynamic pages ([id].js etc) don't just need data you also need to know which [id] values will be available
+-   multiple concrete [id] page instances (e.g. id = 1, id = 2 etc.) are pre-generated
+
+```javascript
+export const getStaticProps = async (context) => {
+    const { params } = context;
+
+    const productId = params.pid;
+
+    const filePath = path.join(process.cwd(), 'data', 'dummy-backend.json');
+    const jsonData = await fs.readFile(filePath);
+    const data = JSON.parse(jsonData);
+
+    const product = data.products.find((product) => product.id === productId);
+
+    return {
+        props: {
+            loadedProduct: product,
+        },
+    };
+};
+
+export const getStaticPaths = async () => {
+    return {
+        paths: [
+            { params: { pid: 'p1' } },
+            { params: { pid: 'p2' } },
+            { params: { pid: 'p3' } },
+        ],
+        fallback: false,
+    };
+};
+```
+
+-   fallback key can help you if you have a LOT of pages to pre-generate
+    -   can be set to true and only pre-generate some pages
+    -   it tells nextjs to pregenerate the specified page only but allow the generation of other links as well
+    -   can lead to issue if you go directly to a non pre-generated address through the url bar (making a fresh request to a post-rendered address)
+    -   be prepared to create a fallback component to accomadate the fallback: true
+    -   nextjs will load the fallback component and then the actual component when it is ready
+
+```javascript
+import { Fragment } from 'react';
+import path from 'path';
+import fs from 'fs/promises';
+
+const ProductDetailPage = ({ loadedProduct }) => {
+    if (!loadedProduct) {
+        return <p>Loading...</p>;
+    }
+
+    return (
+        <Fragment>
+            <h1>{loadedProduct.title}</h1>
+            <p>{loadedProduct.description}</p>
+        </Fragment>
+    );
+};
+
+export const getStaticProps = async (context) => {
+    const { params } = context;
+
+    const productId = params.pid;
+
+    const filePath = path.join(process.cwd(), 'data', 'dummy-backend.json');
+    const jsonData = await fs.readFile(filePath);
+    const data = JSON.parse(jsonData);
+
+    const product = data.products.find((product) => product.id === productId);
+
+    return {
+        props: {
+            loadedProduct: product,
+        },
+    };
+};
+
+export const getStaticPaths = async () => {
+    return {
+        paths: [{ params: { pid: 'p1' } }],
+        fallback: true,
+    };
+};
+
+export default ProductDetailPage;
+```
+
+-   fallback with a string value of 'blocking' makes nextJS wait for the page to be generated and negates the need for a fallback component
+
+### getStaticPaths dynamically
+
+```javascript
+const getData = async () => {
+    const filePath = path.join(process.cwd(), 'data', 'dummy-backend.json');
+    const jsonData = await fs.readFile(filePath);
+    const data = JSON.parse(jsonData);
+
+    return data;
+};
+
+export const getStaticPaths = async () => {
+    const data = await getData();
+
+    const ids = data.products.map((product) => product.id);
+    const pathsWithParams = ids.map((id) => ({
+        params: { pid: id },
+    }));
+
+    return {
+        paths: pathsWithParams,
+        fallback: false,
+    };
+};
+```
+
+### getStaticProps not found pages
+
+-   setting fallback to true, makes it try to load a page that doesn't exist, causing a failure of the app
+-   to get around this add in a notFound: true parameter in getStaticProps
+
+```javascript
+export const getStaticProps = async (context) => {
+    const { params } = context;
+
+    const productId = params.pid;
+
+    const data = await getData();
+
+    const product = data.products.find((product) => product.id === productId);
+
+    if (!product) {
+        return { notFound: true };
+    }
+
+    return {
+        props: {
+            loadedProduct: product,
+        },
+    };
+};
+```
+
+### getServerSideProps
+
+-   gives access to props for dynamic pages and server side rendering
+-   do not mix serversideprops and staticprops
+    -   they run at different points in time
+-   uses all the same props as getStaticProps except the revalidate prop as it inherently gets re-rendered at load time each time it is called
+-   context in serverSideProps gives access to the complete request object, unlike in getStaticProps
+-   used when you never want an old pre-rendered page, it is always updated
+-   used when dynamic data can change constantly
+
+```javascript
+const UserProfilePage = (props) => {
+    return (
+        <div>
+            <h1>{props.username}</h1>
+        </div>
+    );
+};
+
+export default UserProfilePage;
+
+export const getServerSideProps = async (context) => {
+    // context gives access to everything getStaticProps plus request object and response object
+    const { params, req, res } = context;
+
+    return {
+        props: { username: 'Max' },
+    };
+};
+```
+
+-   With Dynamic Routing
+
+```javascript
+const UserIdPage = (props) => {
+    return <h1>{props.id}</h1>;
+};
+
+export default UserIdPage;
+
+export const getServerSideProps = async (context) => {
+    const { params } = context;
+
+    const userId = params.userId;
+
+    return {
+        props: {
+            id: 'userid-' + userId,
+        },
+    };
+};
+```
+
+### Client-Side Data Fetching
+
+-   Some data doesn't need to be or can't be pre-rendered
+    -   data changes with high frequency (e.g. stock data)
+    -   highly user-specific data (e.g. last orders in an online shop)
+    -   partial data (e.g. data that's only used on a part of an page)
+-   Some cases pre-fetching the data for page generation might not work or be required
+-   'traditional' client-side data fetching (e.g. useEffect() with fetch() is fine)
+-   these pages are still pre-rendered by nextjs, but without the data used in the page in api calls
+
+### useSWR
+
+[documentation](https://swr.vercel.app)
+
+```
+$ npm install swr
+```
+
+-   stands for stale-while-revalidate
+-   takes two arguments, the url and how to use the url (fetcher function)
+-   there are many other options you can use with useSWR like auto refetch on re-focus
+
+```javascript
+const { data, error } = useSWR(
+    'https://nextjs-course-25052-default-rtdb.firebaseio.com/sales.json'
+);
+
+useEffect(() => {
+    if (data) {
+        const transformedSales = [];
+
+        for (const key in data) {
+            transformedSales.push({
+                id: key,
+                username: data[key].username,
+                volume: data[key].volume,
+            });
+        }
+
+        setSales(transformedSales);
+    }
+}, [data]);
+
+if (error) {
+    return <p>Failed to load...</p>;
+}
+
+if (!data || !sales) {
+    return <p>Loading...</p>;
+}
+
+return (
+    <ul>
+        {sales.map((sale) => (
+            <li key={sale.id}>
+                {sale.username} - ${sale.volume}
+            </li>
+        ))}
+    </ul>
+);
+```
+
+### combining pre-rendering and fetch
+
+```javascript
+export const getStaticProps = async () => {
+    return fetch(
+        'https://nextjs-course-25052-default-rtdb.firebaseio.com/sales.json'
+    )
+        .then((res) => res.json())
+        .then((data) => {
+            const transformedSales = [];
+
+            for (const key in data) {
+                transformedSales.push({
+                    id: key,
+                    username: data[key].username,
+                    volume: data[key].volume,
+                });
+            }
+            return { props: { sales: transformedSales }, revalidate: 10 };
+        });
+};
+```
