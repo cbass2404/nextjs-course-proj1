@@ -1010,7 +1010,7 @@ export default MyDocument;
 
 ### Optimizing images for production
 
-[documentation](https://nextjs.org/docs/api-reference/next/image)
+[documentation for image component](https://nextjs.org/docs/api-reference/next/image)
 
 -   NextJS uses a Image from 'next/image' component to create multiple versions of an image on the fly
 -   then checks the browser and sends the most optimized version of the image that the browser supports
