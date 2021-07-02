@@ -1020,3 +1020,11 @@ export default MyDocument;
 ```javascript
 <Image src={`/${image}`} alt={title} width={250} height={160} />
 ```
+
+## Adding Backend Code with API Routes (Fullstack)
+
+-   what are API routes?
+    -   Application Programming Interface
+    -   REST apis are the most popular
+-   Adding and using API routes
+-   Working with Requests and Responses in API routes
