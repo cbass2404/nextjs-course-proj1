@@ -1028,3 +1028,4 @@ export default MyDocument;
     -   REST apis are the most popular
 -   Adding and using API routes
 -   Working with Requests and Responses in API routes
+-   data is usually transfered in JSON format
