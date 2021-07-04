@@ -1,8 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import classes from './comment-list.module.css';
 
 function CommentList(props) {
     const [comments, setComments] = useState([]);
+
+    const handleNewComment = useCallback(() => {
+        if (props.eventId === props.newComment.eventId) {
+            setComments([...comments, props.newComment]);
+        }
+    }, [props.newComment]);
+
+    useEffect(() => {
+        handleNewComment();
+    }, [props.newComment]);
 
     useEffect(() => {
         fetch(`/api/comments/${props.eventId}`)

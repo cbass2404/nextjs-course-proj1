@@ -8,6 +8,7 @@ function Comments(props) {
     const { eventId } = props;
 
     const [showComments, setShowComments] = useState(false);
+    const [newComment, setNewComment] = useState('');
 
     function toggleCommentsHandler() {
         setShowComments((prevStatus) => !prevStatus);
@@ -22,7 +23,7 @@ function Comments(props) {
             },
         })
             .then((res) => res.json())
-            .then((data) => console.log(data))
+            .then((data) => setNewComment(data.data))
             .catch((error) => console.error(error));
     }
 
@@ -32,7 +33,9 @@ function Comments(props) {
                 {showComments ? 'Hide' : 'Show'} Comments
             </button>
             {showComments && <NewComment onAddComment={addCommentHandler} />}
-            {showComments && <CommentList eventId={eventId} />}
+            {showComments && (
+                <CommentList eventId={eventId} newComment={newComment} />
+            )}
         </section>
     );
 }
