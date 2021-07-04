@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import classes from './newsletter-registration.module.css';
-import { regex as re } from '../../helpers/emailRegEx';
 
 function NewsletterRegistration() {
     const [email, setEmail] = useState('');
@@ -9,23 +8,23 @@ function NewsletterRegistration() {
     function registrationHandler(event) {
         event.preventDefault();
 
-        const match = re.test(email);
-
-        // optional: validate input
-        if (!match) {
-            setError('Invalid Email');
-            return;
-        }
-
-        setError(null);
-
         // fetch user input (state or refs)
         // send valid data to API
         fetch('/api/newsletter-signup', {
             method: 'POST',
-            body: email,
+            body: JSON.stringify({ email }),
+            headers: {
+                'Content-Type': 'application/json',
+            },
         })
-            .then((res) => console.log(res))
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.message === 'Invalid Email') {
+                    setError(data.message);
+                    return;
+                }
+                setError(null);
+            })
             .catch((err) => {
                 console.error('Newsletter Registration', err);
                 setError('Something went wrong...');
