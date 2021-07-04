@@ -1470,6 +1470,7 @@ export default NotificationContext;
 ```
 
 ```javascript
+// Notification Component
 import { useContext } from 'react';
 
 import classes from './notification.module.css';
@@ -1542,44 +1543,80 @@ export default Layout;
 
 ```javascript
 // newsletter component
-import { regex } from '../../../helpers/emailRegEx';
-import { keys } from '../../../config/keys';
-import { connectDatabase, insertDocument } from '../../../helpers/db-util';
+import { useState, useContext } from 'react';
+import NotificationContext from '../../store/notification-context';
 
-const handler = async (req, res) => {
-    if (req.method === 'POST') {
-        const email = req.body.email;
+import classes from './newsletter-registration.module.css';
 
-        const match = regex.test(email);
+function NewsletterRegistration() {
+    const notificationCtx = useContext(NotificationContext);
+    const [email, setEmail] = useState('');
 
-        if (!match) {
-            res.status(422).json({ message: 'Invalid Email' });
-            return;
-        }
+    function registrationHandler(event) {
+        event.preventDefault();
 
-        let client;
+        notificationCtx.showNotification({
+            title: 'Signing Up',
+            message: 'Registering for newsletter.',
+            status: 'pending',
+        });
 
-        try {
-            client = await connectDatabase(keys.MONGO_URI_NEWSLETTER);
-        } catch (error) {
-            res.status(500).json({
-                message: 'Connecting to the database failed!',
+        // fetch user input (state or refs)
+        // send valid data to API
+        fetch('/api/newsletter-signup', {
+            method: 'POST',
+            body: JSON.stringify({ email }),
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        })
+            .then((res) => {
+                if (res.ok) {
+                    return res.json();
+                }
+
+                return res.json().then((data) => {
+                    throw new Error(data.message || 'Something went wrong!');
+                });
+            })
+            .then((data) => {
+                notificationCtx.showNotification({
+                    title: 'Success!',
+                    message: data.message,
+                    status: 'success',
+                });
+                setEmail('');
+            })
+            .catch((err) => {
+                notificationCtx.showNotification({
+                    title: 'Error!',
+                    message: err.message || 'Something went wrong!',
+                    status: 'error',
+                });
             });
-            return;
-        }
-
-        try {
-            await insertDocument(client, 'newsletter', { email });
-            client.close();
-        } catch (error) {
-            res.status(500).json({ message: 'Inserting data failed!' });
-            return;
-        }
-
-        res.status(201).json({ message: 'Thanks for signing up!' });
     }
-};
-export default handler;
+
+    return (
+        <section className={classes.newsletter}>
+            <h2>Sign up to stay updated!</h2>
+            <form onSubmit={registrationHandler}>
+                <div className={classes.control}>
+                    <input
+                        type="email"
+                        id="email"
+                        placeholder="Your email"
+                        aria-label="Your email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                    />
+                    <button>Register</button>
+                </div>
+            </form>
+        </section>
+    );
+}
+
+export default NewsletterRegistration;
 ```
 
 ## Throwing a new Error

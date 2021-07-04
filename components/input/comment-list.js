@@ -3,6 +3,7 @@ import classes from './comment-list.module.css';
 
 function CommentList(props) {
     const [comments, setComments] = useState([]);
+    const [loading, setLoading] = useState(false);
 
     const handleNewComment = useCallback(() => {
         if (props.eventId === props.newComment.eventId) {
@@ -15,13 +16,21 @@ function CommentList(props) {
     }, [props.newComment]);
 
     useEffect(() => {
+        setLoading(true);
         fetch(`/api/comments/${props.eventId}`)
             .then((res) => res.json())
-            .then((data) => setComments(data.data))
+            .then((data) => {
+                setComments(data.data);
+                setLoading(false);
+            })
             .catch((error) => console.error(error));
     }, []);
 
     const handleComments = () => {
+        if (loading) {
+            return <p>Loading...</p>;
+        }
+
         if (!!comments.length) {
             return comments.map((comment) => {
                 return (
