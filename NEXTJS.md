@@ -1413,3 +1413,207 @@ _This works and you can do that_
 _If you build an application where your MongoDB-related code will execute frequently (e.g. the API route will be hit frequently), you might want to take advantage of MongoDB's "connection pooling" though_
 
 _For this, simply remove all client.close() calls from your code. The connection will then NOT be closed and will be re-used across requests_
+
+## React App Wide State withContext
+
+```javascript
+// store
+import { createContext, useState, useEffect } from 'react';
+
+const NotificationContext = createContext({
+    notification: null, // {title, message, status}
+    showNotification: function (notificationData) {},
+    hideNotification: function () {},
+});
+
+export const NotificationContextProvider = (props) => {
+    const [activeNotification, setActiveNotification] = useState();
+
+    useEffect(() => {
+        if (
+            activeNotification &&
+            (activeNotification.status === 'success' ||
+                activeNotification.status === 'error')
+        ) {
+            const timer = setTimeout(() => {
+                hideNotificationHandler();
+            }, 3000);
+
+            return () => {
+                clearTimeout(timer);
+            };
+        }
+    }, [activeNotification]);
+
+    const showNotificationHandler = (notificationData) => {
+        setActiveNotification(notificationData);
+    };
+
+    const hideNotificationHandler = () => {
+        setActiveNotification(null);
+    };
+
+    const context = {
+        notification: activeNotification,
+        showNotification: showNotificationHandler,
+        hideNotification: hideNotificationHandler,
+    };
+
+    return (
+        <NotificationContext.Provider value={context}>
+            {props.children}
+        </NotificationContext.Provider>
+    );
+};
+
+export default NotificationContext;
+```
+
+```javascript
+import { useContext } from 'react';
+
+import classes from './notification.module.css';
+import NotificationContext from '../../store/notification-context';
+
+function Notification(props) {
+    const notificationCtx = useContext(NotificationContext);
+
+    const { title, message, status } = props;
+
+    let statusClasses = '';
+
+    if (status === 'success') {
+        statusClasses = classes.success;
+    }
+
+    if (status === 'error') {
+        statusClasses = classes.error;
+    }
+
+    if (status === 'pending') {
+        statusClasses = classes.pending;
+    }
+
+    const activeClasses = `${classes.notification} ${statusClasses}`;
+
+    return (
+        <div
+            className={activeClasses}
+            onClick={notificationCtx.hideNotification}
+        >
+            <h2>{title}</h2>
+            <p>{message}</p>
+        </div>
+    );
+}
+
+export default Notification;
+```
+
+```javascript
+// setting context target
+import { Fragment, useContext } from 'react';
+import MainHeader from './MainHeader';
+import Notification from '../ui/notification';
+import NotificationContext from '../../store/notification-context';
+
+const Layout = (props) => {
+    const notificationCtx = useContext(NotificationContext);
+
+    const activeNotification = notificationCtx.notification;
+
+    return (
+        <Fragment>
+            <MainHeader />
+            <main>{props.children}</main>
+            {activeNotification && (
+                <Notification
+                    title={activeNotification.title}
+                    message={activeNotification.message}
+                    status={activeNotification.status}
+                />
+            )}
+        </Fragment>
+    );
+};
+
+export default Layout;
+```
+
+```javascript
+// newsletter component
+import { regex } from '../../../helpers/emailRegEx';
+import { keys } from '../../../config/keys';
+import { connectDatabase, insertDocument } from '../../../helpers/db-util';
+
+const handler = async (req, res) => {
+    if (req.method === 'POST') {
+        const email = req.body.email;
+
+        const match = regex.test(email);
+
+        if (!match) {
+            res.status(422).json({ message: 'Invalid Email' });
+            return;
+        }
+
+        let client;
+
+        try {
+            client = await connectDatabase(keys.MONGO_URI_NEWSLETTER);
+        } catch (error) {
+            res.status(500).json({
+                message: 'Connecting to the database failed!',
+            });
+            return;
+        }
+
+        try {
+            await insertDocument(client, 'newsletter', { email });
+            client.close();
+        } catch (error) {
+            res.status(500).json({ message: 'Inserting data failed!' });
+            return;
+        }
+
+        res.status(201).json({ message: 'Thanks for signing up!' });
+    }
+};
+export default handler;
+```
+
+## Throwing a new Error
+
+```javascript
+fetch('/api/newsletter-signup', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+    headers: {
+        'Content-Type': 'application/json',
+    },
+})
+    .then((res) => {
+        if (res.ok) {
+            return res.json();
+        }
+
+        return res.json().then((data) => {
+            throw new Error(data.message || 'Something went wrong!');
+        });
+    })
+    .then((data) => {
+        notificationCtx.showNotification({
+            title: 'Success!',
+            message: data.message,
+            status: 'success',
+        });
+        setEmail('');
+    })
+    .catch((err) => {
+        notificationCtx.showNotification({
+            title: 'Error!',
+            message: data.message || 'Something went wrong!',
+            status: 'error',
+        });
+    });
+```

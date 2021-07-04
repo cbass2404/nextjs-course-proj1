@@ -1,14 +1,20 @@
-import { useState } from 'react';
+import { useState, useContext } from 'react';
+import NotificationContext from '../../store/notification-context';
+
 import classes from './newsletter-registration.module.css';
 
 function NewsletterRegistration() {
+    const notificationCtx = useContext(NotificationContext);
     const [email, setEmail] = useState('');
-
-    const [response, setResponse] = useState('');
-    const [resStatus, setResStatus] = useState(null);
 
     function registrationHandler(event) {
         event.preventDefault();
+
+        notificationCtx.showNotification({
+            title: 'Signing Up',
+            message: 'Registering for newsletter.',
+            status: 'pending',
+        });
 
         // fetch user input (state or refs)
         // send valid data to API
@@ -19,23 +25,29 @@ function NewsletterRegistration() {
                 'Content-Type': 'application/json',
             },
         })
-            .then((res) => res.json())
-            .then((data) => {
-                console.log(data);
-                if (data.message !== 'Thanks for signing up!') {
-                    setResStatus('error');
-                    setResponse(data.message);
-                    return;
+            .then((res) => {
+                if (res.ok) {
+                    return res.json();
                 }
 
-                setResStatus('success');
-                setResponse(data.message);
+                return res.json().then((data) => {
+                    throw new Error(data.message || 'Something went wrong!');
+                });
+            })
+            .then((data) => {
+                notificationCtx.showNotification({
+                    title: 'Success!',
+                    message: data.message,
+                    status: 'success',
+                });
                 setEmail('');
             })
             .catch((err) => {
-                console.error('Newsletter Registration', err);
-                setResStatus('error');
-                setResponse('Something went wrong...');
+                notificationCtx.showNotification({
+                    title: 'Error!',
+                    message: err.message || 'Something went wrong!',
+                    status: 'error',
+                });
             });
     }
 
@@ -55,17 +67,6 @@ function NewsletterRegistration() {
                     <button>Register</button>
                 </div>
             </form>
-            {resStatus && (
-                <p
-                    className={
-                        resStatus === 'success'
-                            ? classes.success
-                            : classes.error
-                    }
-                >
-                    {response}
-                </p>
-            )}
         </section>
     );
 }
