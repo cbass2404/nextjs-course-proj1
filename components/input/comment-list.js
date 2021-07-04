@@ -6,7 +6,7 @@ function CommentList(props) {
 
     const handleNewComment = useCallback(() => {
         if (props.eventId === props.newComment.eventId) {
-            setComments([...comments, props.newComment]);
+            setComments([props.newComment, ...comments]);
         }
     }, [props.newComment]);
 
@@ -25,7 +25,7 @@ function CommentList(props) {
         if (!!comments.length) {
             return comments.map((comment) => {
                 return (
-                    <li key={comment.id}>
+                    <li key={comment._id}>
                         <p>{comment.text}</p>
                         <div>
                             By <address>{comment.name}</address>

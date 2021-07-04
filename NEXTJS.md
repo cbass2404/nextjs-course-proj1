@@ -1245,3 +1245,95 @@ export default FeedbackPage;
 
 -   nextjs always prioritizes the most specific file over dynamic file names
 -   there is some flexibility in structuring your api file structure, exactly the same as regular pages in nextjs
+
+### API with mongodb
+
+[MongoDB Documentation](http://mongodb.github.io/node-mongodb-native/)
+
+```javascript
+// /api/newsletter-signup
+import { regex } from '../../../helpers/emailRegEx';
+import { MongoClient } from 'mongodb';
+import { keys } from '../../../config/keys';
+
+const handler = async (req, res) => {
+    if (req.method === 'POST') {
+        const email = req.body.email;
+
+        const match = regex.test(email);
+
+        if (!match) {
+            res.status(422).json({ message: 'Invalid Email' });
+            return;
+        }
+
+        const client = await MongoClient.connect(keys.MONGO_URI);
+
+        const db = client.db();
+
+        const response = await db.collection('emails').insertOne({ email });
+
+        client.close();
+
+        res.status(201).json({ message: 'Signed Up' });
+    }
+};
+export default handler;
+```
+
+```javascript
+import { MongoClient } from 'mongodb';
+import { keys } from '../../../config/keys';
+import { regex } from '../../../helpers/emailRegEx';
+import { isValidInput } from '../../../helpers/isValidInput';
+
+const handler = async (req, res) => {
+    const eventId = req.query.eventId;
+
+    const client = await MongoClient.connect(keys.MONGO_URI_EVENTS);
+
+    if (req.method === 'POST') {
+        const { email, name, text } = req.body;
+
+        const match = regex.test(email);
+        const validName = isValidInput(name);
+        const validText = isValidInput(text);
+
+        if (!match || !validName || !validText) {
+            res.status(422).json({ message: 'Invalid Input' });
+            return;
+        }
+
+        const newComment = {
+            eventId,
+            email,
+            name,
+            text,
+        };
+
+        const db = client.db();
+
+        const result = await db.collection('comments').insertOne(newComment);
+
+        newComment.id = result.insertedId;
+
+        res.status(201).json({ message: 'Added Comment', data: newComment });
+    }
+
+    if (req.method === 'GET') {
+        const db = client.db();
+
+        const result = await db
+            .collection('comments')
+            .find({ eventId })
+            .sort({ _id: -1 })
+            .toArray();
+
+        res.status(200).json({ data: result });
+    }
+
+    client.close();
+};
+
+export default handler;
+```

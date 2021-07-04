@@ -1,8 +1,12 @@
+import { MongoClient } from 'mongodb';
+import { keys } from '../../../config/keys';
 import { regex } from '../../../helpers/emailRegEx';
 import { isValidInput } from '../../../helpers/isValidInput';
 
-const handler = (req, res) => {
+const handler = async (req, res) => {
     const eventId = req.query.eventId;
+
+    const client = await MongoClient.connect(keys.MONGO_URI_EVENTS);
 
     if (req.method === 'POST') {
         const { email, name, text } = req.body;
@@ -23,62 +27,28 @@ const handler = (req, res) => {
             text,
         };
 
-        fetch(
-            'https://nextjs-course-25052-default-rtdb.firebaseio.com/comments.json',
-            {
-                method: 'POST',
-                body: JSON.stringify(newComment),
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            }
-        )
-            .then((res) => res.json())
-            .then((data) => {
-                res.status(200).json({
-                    message: 'Added Comment',
-                    data: { id: data.name, ...newComment },
-                });
-            })
-            .catch((error) => {
-                res.status(422).json({
-                    message: 'Something went wrong...',
-                    error,
-                });
-            });
+        const db = client.db();
+
+        const result = await db.collection('comments').insertOne(newComment);
+
+        newComment.id = result.insertedId;
+
+        res.status(201).json({ message: 'Added Comment', data: newComment });
     }
 
     if (req.method === 'GET') {
-        const comments = [];
+        const db = client.db();
 
-        fetch(
-            'https://nextjs-course-25052-default-rtdb.firebaseio.com/comments.json'
-        )
-            .then((res) => res.json())
-            .then((data) => {
-                for (const key in data) {
-                    if (data[key].eventId === eventId) {
-                        comments.push({
-                            id: key,
-                            email: data[key].email,
-                            name: data[key].name,
-                            text: data[key].text,
-                            eventId: data[key].eventId,
-                        });
-                    }
-                }
+        const result = await db
+            .collection('comments')
+            .find({ eventId })
+            .sort({ _id: -1 })
+            .toArray();
 
-                res.status(200).json({
-                    message: 'Comments Received',
-                    data: comments,
-                });
-            })
-            .catch((error) =>
-                res
-                    .status(500)
-                    .json({ message: 'Something went wrong..', error })
-            );
+        res.status(200).json({ data: result });
     }
+
+    client.close();
 };
 
 export default handler;

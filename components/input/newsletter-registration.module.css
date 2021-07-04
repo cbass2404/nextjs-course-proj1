@@ -42,7 +42,16 @@
     flex: 1;
 }
 
+.control input:focus {
+    outline: none;
+}
+
 .error {
     color: red;
+    text-align: center;
+}
+
+.success {
+    color: #03be9f;
     text-align: center;
 }

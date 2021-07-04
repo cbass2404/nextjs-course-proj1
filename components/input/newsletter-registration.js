@@ -3,7 +3,9 @@ import classes from './newsletter-registration.module.css';
 
 function NewsletterRegistration() {
     const [email, setEmail] = useState('');
-    const [error, setError] = useState(null);
+
+    const [response, setResponse] = useState('');
+    const [resStatus, setResStatus] = useState(null);
 
     function registrationHandler(event) {
         event.preventDefault();
@@ -20,14 +22,18 @@ function NewsletterRegistration() {
             .then((res) => res.json())
             .then((data) => {
                 if (data.message === 'Invalid Email') {
-                    setError(data.message);
+                    setResStatus('error');
+                    setResponse('Invalid Email');
                     return;
                 }
-                setError(null);
+                setResStatus('success');
+                setResponse('Thanks for signing up!');
+                setEmail('');
             })
             .catch((err) => {
                 console.error('Newsletter Registration', err);
-                setError('Something went wrong...');
+                setResStatus('error');
+                setResponse('Something went wrong... Try again later');
             });
     }
 
@@ -47,7 +53,17 @@ function NewsletterRegistration() {
                     <button>Register</button>
                 </div>
             </form>
-            {error && <p className={classes.error}>{error}</p>}
+            {resStatus && (
+                <p
+                    className={
+                        resStatus === 'success'
+                            ? classes.success
+                            : classes.error
+                    }
+                >
+                    {response}
+                </p>
+            )}
         </section>
     );
 }
