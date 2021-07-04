@@ -1029,3 +1029,219 @@ export default MyDocument;
 -   Adding and using API routes
 -   Working with Requests and Responses in API routes
 -   data is usually transfered in JSON format
+-   api files HAVE to be in a folder called api to be treated in a special way
+-   when accessing data from an internal api with getstaticprops or other rendering methods, always use the logic inside the render method, fetch/axios are only for external sources of data
+
+```javascript
+// /api/feedback
+import fs from 'fs';
+import path from 'path';
+
+export const buildFeedbackPath = () => {
+    return path.join(process.cwd(), 'data', 'feedback.json');
+};
+
+export const extractFeedback = (filePath) => {
+    const fileData = fs.readFileSync(filePath);
+    const data = JSON.parse(fileData);
+    return data;
+};
+
+const handler = (req, res) => {
+    if (req.method === 'POST') {
+        const { email, feedback } = req.body;
+
+        const newFeedback = {
+            id: new Date().toISOString(),
+            email,
+            feedback,
+        };
+
+        const filePath = buildFeedbackPath();
+        const data = extractFeedback(filePath);
+        data.push(newFeedback);
+        fs.writeFileSync(filePath, JSON.stringify(data));
+
+        res.status(201).json({ message: 'Success!', feedback: newFeedback });
+    } else {
+        const filePath = buildFeedbackPath();
+        const data = extractFeedback(filePath);
+        res.status(200).json({ data });
+    }
+};
+
+export default handler;
+
+// /pages/index
+import { useRef, useState } from 'react';
+
+function HomePage() {
+    const [feedbackItems, setFeedbackItems] = useState([]);
+
+    const emailInput = useRef();
+    const feedbackInput = useRef();
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+
+        const email = emailInput.current.value;
+        const feedback = feedbackInput.current.value;
+
+        const reqBody = { email, feedback };
+
+        fetch('/api/feedback', {
+            method: 'POST',
+            body: JSON.stringify(reqBody),
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        })
+            .then((res) => res.json())
+            .then((data) => console.log(data));
+    };
+
+    const handleGetFeedback = () => {
+        fetch('/api/feedback')
+            .then((res) => res.json())
+            .then((data) => setFeedbackItems(data.data));
+    };
+
+    return (
+        <div>
+            <h1>The Home Page</h1>
+            <form onSubmit={handleSubmit}>
+                <div>
+                    <label>
+                        Your Email Address
+                        <input type="email" id="email" ref={emailInput} />
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        Your Feedback
+                        <textarea
+                            id="feedback"
+                            rows="5"
+                            ref={feedbackInput}
+                        ></textarea>
+                    </label>
+                </div>
+                <button>Send Feedback</button>
+            </form>
+            <hr />
+            <button onClick={handleGetFeedback}>Load Feedback</button>
+            {feedbackItems.map((item) => (
+                <li key={item.id}>{item.feedback}</li>
+            ))}
+        </div>
+    );
+}
+
+export default HomePage;
+
+// /pages/feedback/index.js
+import { buildFeedbackPath, extractFeedback } from '../api/feedback';
+
+const FeedbackPage = (props) => {
+    return (
+        <ul>
+            {props.feedbackItems.map((item) => {
+                <li key={item.id}>{item.feedback}</li>;
+            })}
+        </ul>
+    );
+};
+
+export const getStaticProps = async () => {
+    // do not use fetch to access internal api
+    // only for external apis
+    const filePath = buildFeedbackPath();
+    const data = extractFeedback(filePath);
+    return {
+        props: {
+            feedbackItems: data,
+        },
+    };
+};
+
+export default FeedbackPage;
+```
+
+### Creating and using Dynamic API Routes
+
+-   done in much the same way as nextjs frontend routing
+-   can gain access to parameters through the req object just like in standard nodejs
+
+```javascript
+// /api/[feedbackId].js
+import { buildFeedbackPath, extractFeedback } from './feedback';
+
+const handler = (req, res) => {
+    // req has body/method/query like standard nodejs
+    const feedbackId = req.query.feedbackId;
+    const filePath = buildFeedbackPath();
+    const feedbackData = extractFeedback(filePath);
+    const selectedFeedback = feedbackData.find(
+        (feedback) => feedback.id === feedbackId
+    );
+    res.status(200).json({ feedback: selectedFeedback });
+};
+
+export default handler;
+
+// /pages/feedback
+import { useState, Fragment } from 'react';
+import { buildFeedbackPath, extractFeedback } from '../api/feedback';
+
+const FeedbackPage = (props) => {
+    const [feedbackData, setFeedbackData] = useState();
+
+    const loadFeedbackHandler = (id) => {
+        fetch(`/api/${id}`)
+            .then((res) => res.json())
+            .then((data) => setFeedbackData(data.feedback))
+            .catch((err) => console.error(err));
+    };
+
+    return (
+        <Fragment>
+            {feedbackData && <p>{feedbackData.email}</p>}
+            <ul>
+                {props.feedbackItems.map((item) => (
+                    <li key={item.id}>
+                        {item.feedback}
+                        <button
+                            onClick={loadFeedbackHandler.bind(null, item.id)}
+                        >
+                            Show Details
+                        </button>
+                    </li>
+                ))}
+            </ul>
+        </Fragment>
+    );
+};
+
+export const getStaticProps = async () => {
+    // do not use fetch to access internal api
+    // only for external apis
+    const filePath = buildFeedbackPath();
+    const data = extractFeedback(filePath);
+    return {
+        props: {
+            feedbackItems: data,
+        },
+    };
+};
+
+export default FeedbackPage;
+```
+
+-   alternatively you can use the spread operator on the slug api to become a catch all dynamic api
+
+```
+[...feedbackId].js
+```
+
+-   nextjs always prioritizes the most specific file over dynamic file names
+-   there is some flexibility in structuring your api file structure, exactly the same as regular pages in nextjs
