@@ -1253,8 +1253,8 @@ export default FeedbackPage;
 ```javascript
 // /api/newsletter-signup
 import { regex } from '../../../helpers/emailRegEx';
-import { MongoClient } from 'mongodb';
 import { keys } from '../../../config/keys';
+import { connectDatabase, insertDocument } from '../../../helpers/db-util';
 
 const handler = async (req, res) => {
     if (req.method === 'POST') {
@@ -1267,30 +1267,52 @@ const handler = async (req, res) => {
             return;
         }
 
-        const client = await MongoClient.connect(keys.MONGO_URI);
+        let client;
 
-        const db = client.db();
+        try {
+            client = await connectDatabase(keys.MONGO_URI_NEWSLETTER);
+        } catch (error) {
+            res.status(500).json({
+                message: 'Connecting to the database failed!',
+            });
+            return;
+        }
 
-        const response = await db.collection('emails').insertOne({ email });
+        try {
+            await insertDocument(client, 'newsletter', { email });
+            client.close();
+        } catch (error) {
+            res.status(500).json({ message: 'Inserting data failed!' });
+            return;
+        }
 
-        client.close();
-
-        res.status(201).json({ message: 'Signed Up' });
+        res.status(201).json({ message: 'Thanks for signing up!' });
     }
 };
 export default handler;
 ```
 
 ```javascript
-import { MongoClient } from 'mongodb';
 import { keys } from '../../../config/keys';
+import {
+    connectDatabase,
+    insertDocument,
+    getEventComments,
+} from '../../../helpers/db-util';
 import { regex } from '../../../helpers/emailRegEx';
 import { isValidInput } from '../../../helpers/isValidInput';
 
 const handler = async (req, res) => {
     const eventId = req.query.eventId;
 
-    const client = await MongoClient.connect(keys.MONGO_URI_EVENTS);
+    let client;
+
+    try {
+        client = await connectDatabase(keys.MONGO_URI_EVENTS);
+    } catch (error) {
+        res.status(500).json({ message: 'Connecting to the database failed!' });
+        return;
+    }
 
     if (req.method === 'POST') {
         const { email, name, text } = req.body;
@@ -1301,6 +1323,7 @@ const handler = async (req, res) => {
 
         if (!match || !validName || !validText) {
             res.status(422).json({ message: 'Invalid Input' });
+            client.close();
             return;
         }
 
@@ -1311,25 +1334,34 @@ const handler = async (req, res) => {
             text,
         };
 
-        const db = client.db();
+        let result;
 
-        const result = await db.collection('comments').insertOne(newComment);
+        try {
+            result = await insertDocument(client, 'comments', newComment);
+            newComment._id = result.insertedId;
 
-        newComment.id = result.insertedId;
-
-        res.status(201).json({ message: 'Added Comment', data: newComment });
+            res.status(201).json({
+                message: 'Added Comment',
+                data: newComment,
+            });
+        } catch (error) {
+            res.status(500).json({ message: 'Inserting comment failed!' });
+        }
     }
 
     if (req.method === 'GET') {
-        const db = client.db();
+        try {
+            const result = await getEventComments(
+                client,
+                'comments',
+                { eventId },
+                { _id: -1 }
+            );
 
-        const result = await db
-            .collection('comments')
-            .find({ eventId })
-            .sort({ _id: -1 })
-            .toArray();
-
-        res.status(200).json({ data: result });
+            res.status(200).json({ data: result });
+        } catch (error) {
+            res.status(500).json({ message: 'Getting comments failed' });
+        }
     }
 
     client.close();
@@ -1337,3 +1369,47 @@ const handler = async (req, res) => {
 
 export default handler;
 ```
+
+```javascript
+// /helpers/db-util.js
+import { MongoClient } from 'mongodb';
+
+export const connectDatabase = async (key) => {
+    const client = await MongoClient.connect(key);
+
+    return client;
+};
+
+export const insertDocument = async (client, collection, document) => {
+    const db = client.db();
+
+    const result = await db.collection(collection).insertOne(document);
+
+    return result;
+};
+
+export const getEventComments = async (
+    client,
+    collection,
+    query = null,
+    sort = null
+) => {
+    const db = client.db();
+
+    const documents = await db
+        .collection(collection)
+        .find(query)
+        .sort(sort)
+        .toArray();
+
+    return documents;
+};
+```
+
+_In this course, we always close our MongoDB connections via client.close()_
+
+_This works and you can do that_
+
+_If you build an application where your MongoDB-related code will execute frequently (e.g. the API route will be hit frequently), you might want to take advantage of MongoDB's "connection pooling" though_
+
+_For this, simply remove all client.close() calls from your code. The connection will then NOT be closed and will be re-used across requests_

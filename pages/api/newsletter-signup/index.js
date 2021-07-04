@@ -1,6 +1,6 @@
 import { regex } from '../../../helpers/emailRegEx';
-import { MongoClient } from 'mongodb';
 import { keys } from '../../../config/keys';
+import { connectDatabase, insertDocument } from '../../../helpers/db-util';
 
 const handler = async (req, res) => {
     if (req.method === 'POST') {
@@ -13,15 +13,26 @@ const handler = async (req, res) => {
             return;
         }
 
-        const client = await MongoClient.connect(keys.MONGO_URI_NEWSLETTER);
+        let client;
 
-        const db = client.db();
+        try {
+            client = await connectDatabase(keys.MONGO_URI_NEWSLETTER);
+        } catch (error) {
+            res.status(500).json({
+                message: 'Connecting to the database failed!',
+            });
+            return;
+        }
 
-        const response = await db.collection('emails').insertOne({ email });
+        try {
+            await insertDocument(client, 'newsletter', { email });
+            client.close();
+        } catch (error) {
+            res.status(500).json({ message: 'Inserting data failed!' });
+            return;
+        }
 
-        client.close();
-
-        res.status(201).json({ message: 'Signed Up' });
+        res.status(201).json({ message: 'Thanks for signing up!' });
     }
 };
 export default handler;

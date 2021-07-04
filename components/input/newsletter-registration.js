@@ -21,19 +21,21 @@ function NewsletterRegistration() {
         })
             .then((res) => res.json())
             .then((data) => {
-                if (data.message === 'Invalid Email') {
+                console.log(data);
+                if (data.message !== 'Thanks for signing up!') {
                     setResStatus('error');
-                    setResponse('Invalid Email');
+                    setResponse(data.message);
                     return;
                 }
+
                 setResStatus('success');
-                setResponse('Thanks for signing up!');
+                setResponse(data.message);
                 setEmail('');
             })
             .catch((err) => {
                 console.error('Newsletter Registration', err);
                 setResStatus('error');
-                setResponse('Something went wrong... Try again later');
+                setResponse('Something went wrong...');
             });
     }
 
